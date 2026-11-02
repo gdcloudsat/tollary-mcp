@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # 1. High-Performance Go Data Plane Gateway
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: tollary-go-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - REDIS_URL=redis://redis:6379
+      - KAFKA_BROKERS=redpanda:9092
+    depends_on:
+      - redis
+      - redpanda
+
+  # 2. Control Plane API & Management Engine
+  control-plane:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    container_name: tollary-control-plane
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgres://tollary:tollary_secret@postgres:5432/tollary_db
+      - REDIS_URL=redis://redis:6379
+      - OPENSEARCH_URL=http://opensearch:9200
+    depends_on:
+      - postgres
+      - redis
+      - opensearch
+
+  # 3. PostgreSQL 16 (Transactional Ledger & Schemas)
+  postgres:
+    image: postgres:16-alpine
+    container_name: tollary-postgres
+    environment:
+      - POSTGRES_USER=tollary
+      - POSTGRES_PASSWORD=tollary_secret
+      - POSTGRES_DB=tollary_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # 4. Redis 7 (In-Memory Cache & Nonce Replay Guard)
+  redis:
+    image: redis:7.2-alpine
+    container_name: tollary-redis
+    ports:
+      - "6379:6379"
+
+  # 5. Redpanda (Zero-JVM Kafka Event Bus)
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.2
+    container_name: tollary-redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --kafka-addr PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+
+  # 6. ClickHouse (High-Volume Telemetry & Analytics)
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: tollary-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+
+  # 7. OpenSearch (Hybrid BM25 + Vector Search)
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    container_name: tollary-opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+
+volumes:
+  pgdata:

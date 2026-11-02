@@ -1,0 +1,49 @@
+name: Tollary Platform CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    name: Build & Test Full-Stack Platform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: TypeScript Type Check (Lint)
+        run: npm run lint
+
+      - name: Build Web & Control Plane
+        run: npm run build
+
+      - name: Setup Go 1.23
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: services/gateway/go.mod
+
+      - name: Build Go Data Plane Gateway
+        run: |
+          cd services/gateway
+          go mod download
+          CGO_ENABLED=0 go build -v -o /tmp/tollary-gateway ./cmd/gateway
+
+      - name: Start Full-Stack Server & Run End-to-End Concurrency Tests
+        run: |
+          npm run dev &
+          sleep 3
+          npm test

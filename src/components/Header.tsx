@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TabType } from '../types';
 import { 
   ShieldCheck, 
@@ -10,7 +10,8 @@ import {
   Calculator, 
   Code2, 
   CheckSquare, 
-  FileText 
+  FileText,
+  Activity
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -19,6 +20,30 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
+  const [gatewayStatus, setGatewayStatus] = useState<'online' | 'checking' | 'offline'>('checking');
+  const [uptimeSec, setUptimeSec] = useState<number>(0);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('/v1/health');
+        if (res.ok) {
+          const data = await res.json();
+          setGatewayStatus('online');
+          setUptimeSec(data.uptimeSeconds || 0);
+        } else {
+          setGatewayStatus('offline');
+        }
+      } catch {
+        setGatewayStatus('offline');
+      }
+    };
+
+    checkHealth();
+    const interval = setInterval(checkHealth, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const navItems: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'summary', label: 'Executive & PRD', icon: FileText },
     { id: 'architecture', label: 'Control vs Data Plane', icon: Layers },
@@ -43,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-base text-slate-100 tracking-tight">Tollary</span>
-                <span className="text-xs font-mono text-slate-400">· v1.0 Architecture & Discovery</span>
+                <span className="text-xs font-mono text-slate-400">· v1.0 Production Spec</span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">Unified MCP Gateway, Agent Discovery & x402 Monetization</p>
             </div>
@@ -51,9 +76,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
 
           {/* Status & Review indicator */}
           <div className="flex items-center space-x-3">
-            <div className="flex items-center gap-2 text-xs text-slate-300 font-mono bg-slate-900 border border-slate-800 px-2.5 py-1 rounded">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>DISCOVERY SPEC REVIEW</span>
+            <div className="flex items-center gap-2 text-xs font-mono bg-slate-900 border border-slate-800 px-3 py-1 rounded">
+              <span className={`w-2 h-2 rounded-full ${gatewayStatus === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className="text-slate-300">
+                {gatewayStatus === 'online' ? `GATEWAY LIVE (${uptimeSec}s)` : 'CHECKING...'}
+              </span>
+              <span className="text-slate-600">·</span>
+              <span className="text-cyan-400">MCP 2024-11-05 & x402</span>
             </div>
           </div>
         </div>
