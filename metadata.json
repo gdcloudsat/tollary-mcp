@@ -1,0 +1,6 @@
+{
+  "name": "Tollary — MCP Gateway & Agent Discovery Platform",
+  "description": "Unified infrastructure platform for AI agents and developers to discover, connect, execute, and monetize MCP tools and APIs with native x402 payments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
